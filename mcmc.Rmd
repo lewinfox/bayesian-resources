@@ -1,0 +1,70 @@
+---
+title: "Monte Carlo"
+theme: cosmo
+output: html_document
+    
+---
+
+# What are we trying to do
+MCMC aims to let us randomly sample from a distribution that we can't model directly. We must have access to som function $f$ that is proportional to the probability distribution we are trying to sample.
+https://nicercode.github.io/guides/mcmc/
+
+# The Metropolis-Hastings algorithm
+1. Start in a random point of the distribution
+2. Randomly select a new candidate location from the available states. In the case of a continuous distribution this is anywhere, in the case of a Markov chain this will be determined by the avaiilable state transitions. There may or may not need to be a probability distribution associated with this selection process depending on the model.
+3. Compute the value of $f$ for the new location and compare it to $f$ at the current location. The ratio of $f_{t+1}$ to $f_{t}$ becomes the "acceptance probability".
+4. Generate a random number between 0 and 1. If this is less than or equal to the "acceptance probability", move to the new state. Otherwise remain where you are.
+5. At each step, record which state you are in.
+
+Although the value of the distribution itself is not necessarily known, this approach means you will spend time in each state relative to its value of $f$.
+
+# Demo - simulating the Beta distribution
+This function takes `n_steps` through the Metropolis-Hastings algorithm and returns a vector of the values of the states visited.
+
+```{r}
+simulate_beta <- function(n_steps, a, b) {
+  states <- numeric(n_steps)
+  current_state <- runif(1)
+  
+  for (t in seq_len(n_steps)) {
+    # Calculate value of f at this state
+    here <- stats::dbeta(current_state, a, b)
+    # Record current state
+    states[t] <- current_state
+    # Randomly select new target state
+    proposed_state <- runif(1)
+    # Calculate "height" of proposed state
+    there <- dbeta(proposed_state, a, b)
+    # Calculate the ratio of heights
+    acceptance_criteria <- there / here
+    # Randomly transition
+    if (runif(1) < acceptance_criteria) {
+      current_state <- proposed_state
+    }
+  }
+  states
+}
+```
+
+We can use the function above to see how increasing the sample size increases the goodness of fit of our modelled distribution to the true distribution.
+```{r}
+x <- seq(0, 1, 0.01)
+true_beta_y <- dbeta(x, 9, 2)
+sim_beta_100 <- simulate_beta(100, 9, 2)
+sim_beta_1000 <- simulate_beta(1000, 9, 2)
+sim_beta_10000 <- simulate_beta(10000, 9, 2)
+sim_beta_100000 <- simulate_beta(100000, 9, 2)
+
+plot(x, true_beta_y, type = "l", col = "black", ylim = c(0, 5), ylab = "height", lwd = 2)
+lines(density(sim_beta_100), type = "l", col = "red", lwd = 2)
+lines(density(sim_beta_1000), type = "l", col = "blue", lwd = 2)
+lines(density(sim_beta_10000), type = "l", col = "green", lwd = 2)
+lines(density(sim_beta_100000), type = "l", col = "yellow", lwd = 2)
+legend(
+  "topleft",
+  legend = c("true", "100 steps", "1,000 steps", "10,000 steps", "100,000 steps"),
+  col = c("black", "red", "blue", "green", "yellow"),
+  lty = 1,
+  lwd = 2
+)
+```
